@@ -1,0 +1,85 @@
+# Compila o Aconta para iPhone num Mac da nuvem do GitHub e gera Aconta.ipa (sem assinatura).
+# O Sideloadly assina com o seu Apple ID na hora de instalar.
+name: App iPhone (.ipa)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "resources/**"
+      - "package.json"
+      - "capacitor.config.json"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  ios:
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Criar projeto iOS
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Desenhar ícone e tela de abertura
+        run: |
+          CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+          "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=1024,1024 --screenshot="$PWD/resources/icon-1024.png" "file://$PWD/resources/icon.html" || true
+          "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=2732,2732 --screenshot="$PWD/resources/splash-2732.png" "file://$PWD/resources/splash.html" || true
+          ls -la resources
+
+      - name: Permissões, barra de status e ícone
+        run: |
+          PLIST=ios/App/App/Info.plist
+          setp () { /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :$1 $3" "$PLIST"; }
+          setp NSMicrophoneUsageDescription string "O Aconta usa o microfone para anotar seus gastos por voz."
+          setp NSSpeechRecognitionUsageDescription string "O Aconta transforma o que você fala em lançamentos, como 45 reais na padaria."
+          setp UIStatusBarStyle string UIStatusBarStyleLightContent
+          setp UIViewControllerBasedStatusBarAppearance bool false
+          setp CFBundleDisplayName string Aconta
+
+          ICONS=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          [ -f resources/icon-1024.png ] && for f in "$ICONS"/*.png; do
+            w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+            sips -s format png -z "$w" "$w" resources/icon-1024.png --out "$f" >/dev/null
+          done
+          SPLASH=ios/App/App/Assets.xcassets/Splash.imageset
+          if [ -d "$SPLASH" ] && [ -f resources/splash-2732.png ]; then
+            for f in "$SPLASH"/*.png; do
+              w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+              sips -s format png -z "$w" "$w" resources/splash-2732.png --out "$f" >/dev/null
+            done
+          fi
+
+      - name: Compilar
+        run: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -n 40
+          test -d build/Build/Products/Release-iphoneos/App.app
+
+      - name: Empacotar .ipa
+        run: |
+          mkdir -p dist/Payload
+          cp -R ios/App/build/Build/Products/Release-iphoneos/App.app dist/Payload/Aconta.app
+          cd dist && zip -qry ../Aconta.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aconta-ipa
+          path: Aconta.ipa
+          retention-days: 30
