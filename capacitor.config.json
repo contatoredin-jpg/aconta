@@ -1,0 +1,11 @@
+{
+  "appId": "com.aconta.app",
+  "appName": "Aconta",
+  "webDir": "www",
+  "backgroundColor": "#05080f",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#05080f",
+    "scrollEnabled": false
+  }
+}
