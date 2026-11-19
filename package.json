@@ -1,0 +1,17 @@
+{
+  "name": "aconta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aconta — finanças pessoais e da empresa, com lançamento por voz",
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@capacitor-community/speech-recognition": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
