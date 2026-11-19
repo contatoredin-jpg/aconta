@@ -34,3 +34,7 @@ drop policy if exists "aconta alterar" on public.aconta_records;
 create policy "aconta ler"     on public.aconta_records for select using (auth.uid() = user_id);
 create policy "aconta inserir" on public.aconta_records for insert with check (auth.uid() = user_id);
 create policy "aconta alterar" on public.aconta_records for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- libera a tabela para a API (usuários logados; o RLS acima limita cada um aos próprios dados)
+grant usage on schema public to authenticated;
+grant select, insert, update on public.aconta_records to authenticated;
